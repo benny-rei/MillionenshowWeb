@@ -1,0 +1,184 @@
+public Frage holeFrage(int id){
+	
+	String sql = "SELECT * FROM Frage WHERE id = ?";
+	PreparedStatement stmt = conn.prepareStatement(sql);
+	stmt.setInt(1, id);
+	Resultset rs = stmt.executeQuery();
+	Frage f = new Frage();
+	
+	if(rs.next()){
+	
+		f.setId(id);
+		f.setText(rs.getString("text"));
+		f.setWert(rs.getInt("wert"));
+		f.setAlt_id(rs.getInt("alt_id"));
+	}
+	f.setAlternativen(holeAlternativen(id));
+	rs.close();
+	stmt.close();
+	return f;
+	
+}
+
+public Alternative[] holeAlternative(int frage_id) throws SQLException{
+	
+	String sql = "SELECT * FROM alternative WHERE frage_id = ?";
+	PreparedStatement stmt = conn.prepareStatement(sql);
+	stmt.setInt(1, frage_id);
+	Resultset rs = stmt.executeQuery();
+	
+	Alternative[] alt = new Alternative[4];
+	
+	int pos = 0;
+	while(rs.next()){
+		
+		Alternative a = new Alternative();
+		a.setId(rs.getInt("id"));
+		a.setText(rs.getString("text"));
+		a.setFrageId(frage_id);
+		alt[pos++] = a;
+	}
+	
+	rs.close();
+	stmt.close();
+	return alt;
+	
+}
+
+public void neuerHiScore(String name, int punkte){
+	
+	String sql = "INSERT INTO hiscore(name, punkte, date) values(?,?,now())";
+	PreparedStatement stmt = conn.prepareStatement(sql);
+	stmt.setString(1, name);
+	stmt.setInt(2, punkte);
+	stmt.executeUpdate();
+	stmt.close();
+	
+}
+
+
+public HashMap<Integer, Integer> anzahlFragen(){
+	
+	HashMap<Integer, Integer> hm = new HashMap<Integer, Integer>();
+	
+	String sql = "SELECT wert, count(*) AS anz from frage GROUP by wert";
+	Statement stmt = conn.createStatement();
+	Resultset rs = stmt.executeQuery(sql);
+	
+	while(rs.next()){
+		
+		int wert = rs.getInt("wert");
+		int anz = rs.getInt("anz");
+		hm.put(wert, anz);
+		
+	}
+	
+	rs.close();
+	stmt.close();
+	
+	return hm;
+	
+}
+
+
+
+--------------------------------
+jsp
+--------------------------------
+
+	<%
+		Frage f = (Frage) session.getAttribute("frage");
+		
+	%>
+
+	<html>
+		
+		<body>
+			<h1> <%= f.getText(); %> </h1>
+			<form action="AntwortServlet" method="post">
+				<% 
+					for(int i = 0; i <4; i++){
+						
+						out.print("<input type='radio' name='alt' value='"+f.getAlt()[i].getId() +"'/>");
+						out.print(f.getAlt()[i].getText() +"<br/>");
+					}
+					
+				%>
+				
+				<input type="submit" name="abschicken" value"abschicken" />
+			</form>
+		</body>
+		
+	</html>
+
+
+
+--------------------
+Antwort Servlet
+--------------------
+
+HttpSession session = request.getSession();
+Frage f = (Frage) session.getAttribute("frage");
+int alt_id = f.getAlt(id); //richtige Antwort
+String altStr = request.getParameter("alt");
+int alt = Integer.parseInt(altStr);
+
+if(alt_id == alt){
+	
+	DBManager db = new DBManager();
+	
+	Frage.fNeu = db.holeNaechsteFrage((int)session.getAttribute("wert")++);
+	db.close();
+	
+	session.setAttribute("frage", fNeu);
+	response.sendRedirect("anzeige.jsp");
+	
+	return;
+	
+}
+
+response.sendRedirect("highscore.jsp");
+
+
+---------------------------
+AJAX & JSON
+---------------------------
+
+was muss man alles ändern?
+radiobuttons brauchen ids
+
+<script>
+	var xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+	if (this.readyState == 4 && this.status == 200) 
+	{
+	
+		var id = 0;
+	
+		for(var i = 0; i<4; i++){
+			if(getElementById("r_"+i).Selected){
+				id = getElementById("r_"+i).Value;
+			}
+		}
+		
+		var form = getElementById("form");
+		
+		var htmlString = "<input type='radio' ..... alt[0].getID ..... >"
+		
+	}
+	xhttp.open("GET", "antwortServlet", true);
+	xhttp.send();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
